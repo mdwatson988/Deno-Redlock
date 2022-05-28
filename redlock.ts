@@ -485,6 +485,7 @@ export default class Redlock extends EventEmitter {
         console.log('16 Trying to use evalSha');
         // console.log('script.hash ==> ', script.hash, 'keys ==> ', keys, '...keys ==> ', ...keys, '...args ==> ', ...args);
         const shaResult = await client.evalsha(script.hash, keys, args) as unknown;
+        console.log('shaResult: ', shaResult, ' typeof shaResult: ', typeof(shaResult))
         console.log('17-19 sha result after calling evalSha successfully: ', shaResult)
 
         if (typeof shaResult !== "number") {

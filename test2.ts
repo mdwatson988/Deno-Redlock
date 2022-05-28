@@ -6,8 +6,7 @@ const redis = await connect({hostname: "127.0.0.1", port: 6379})
 
 const redlock = new Redlock(redis)
 
-
-redlock.using(["bdc4076d8604a493c324292b57ed3c3f00797f8d"], 10000, async (signal) => {
+redlock.using(["85b5b0fb126fe43d052651539fd18eeb0e94576b"], 10000, async (signal) => {
     await redis.set("key1", "test2");
     console.log('finished calling redis.set as the callback routine in test file')
 
