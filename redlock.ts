@@ -120,46 +120,35 @@ export default class Redlock extends EventEmitter {
         hash: SHA1(releaseScript),
       },
     };
-    // console.log("1", clientOrCluster);
+
     this.clients = new Set();
-    this.Ready = new Promise((resolve) => {
-      console.log('1 calling client.clusterNodes()');
-      clientOrCluster.clusterNodes()
-        .then(nodes => {
-          console.log("2 found cluster nodes")
-          const nodeInfoArr = nodes.replace(/\n|@|:/g, " ").split(" ");
-          console.log(nodeInfoArr);
-          const clientArray = [];
-          for (let i = 0; i < nodeInfoArr.length; i++) {
-              if (nodeInfoArr[i] === "connected") {
-                console.log('3 in the for-loop setting client connections');
-                clientArray.push([nodeInfoArr[i-8], nodeInfoArr[i-7]]);
-              }
-          }
-          console.log(clientArray);
-          for (const [host, port] of clientArray) {
-            connect({hostname: host, port: Number(port)})
-              .then(client => {            
-                this.clients.add(client);
-              })
-          }
-          console.log('4 this.clients set when found cluster node: ', this.clients);
-          console.log('5 leaving the try block of _getClientConnections function');
-          resolve()
-        })
-        // if error due to client not being a cluster, add single client instance to this.this.clients
-        .catch(error => {
-          console.log('2 did not find cluser nodes, in the catch block of this.Ready');
-          // console.log(error.message);
-          if (!(error.message.startsWith('-ERR This instance has cluster support disabled'))) throw error
-          this.clients.add(clientOrCluster);
-          console.log('3 this.clients set w/ no cluster nodes: ', this.clients);
-          clientOrCluster.info("server")
-            .then(nodeInfo => console.log('4 node info: ', nodeInfo));
-          console.log('5 leavnig this.Ready catch block')
-          resolve();
-        })
-      });
+    /**
+     * Await this promise resolution to establish connection
+     * to all Redis instances in a cluster prior to acquiring lock
+     */
+    this.Ready = new Promise(async (resolve) => {
+    try {
+      const nodes = await clientOrCluster.clusterNodes();
+      const nodeInfoArr = nodes.replace(/\n|@|:/g, " ").split(" ");
+      for (let i = 0; i < nodeInfoArr.length; i++) {
+        if (nodeInfoArr[i] === "connected") {
+          const client = await connect(
+            {hostname: nodeInfoArr[i - 8], port: Number(nodeInfoArr[i - 7])}
+          )
+          this.clients.add(client);
+        }
+      }
+    }
+    catch (error) {
+      if (!(error.message.startsWith('-ERR This instance has cluster support disabled'))) {
+        throw error
+      }
+      this.clients.add(clientOrCluster);
+    }
+    finally {
+      resolve()
+    }
+  })
 
   }
 
@@ -223,7 +212,13 @@ export default class Redlock extends EventEmitter {
         console.log('42 creating a new lock in the acquire function');
 
       // return new Lock(
-
+      const newLock = new Lock(
+        this,
+        resources,
+        value,
+        attempts,
+        start + duration - drift
+      )
       console.log('43 new lock being returned from successful acquire function: ', newLock)
       return newLock;
     } catch (error) {
